@@ -1,0 +1,4 @@
+PureRef-1.11.1_x64.exe
+avast_secure_browser_setup.exe
+FileZilla_3.66.5_win64-setup.exe
+markdownpad2-setup.exe
