@@ -28,6 +28,9 @@
 
 	.PARAMETER DefaultCategory
 	The default category name that is always installed. If not provided, "All" is assumed.
+
+	.PARAMETER ExcludeDefaultCategory
+	Normally, items in the default category are always processed for any category. If this parameter is passed, they will not be processed. Cannot be used together with the -All parameter.
 	
 	.INPUTS
 	Category to install.
@@ -51,7 +54,8 @@ param (
 		[parameter()]											        [string]$WindowsDir,
 		[parameter()]											        [string]$LocalStorageDir,
 		[parameter()]											        [string]$LocalFontsDir,
-		[parameter()]											        [string]$DefaultCategory
+		[parameter()]											        [string]$DefaultCategory,
+		[parameter(ParameterSetName='Category')]       					[switch]$ExcludeDefaultCategory
 	  )
 DynamicParam { Build-BaseParameters }
 
@@ -151,7 +155,7 @@ Process
 			$currentCategory = $null
 			$lines = Get-Content -Path $FilePath
 
-			# First pass to identify categories
+			# first pass - to identify categories
 			foreach ($line in $lines) {
 				if ($line.Trim() -match '^\S+:$') {
 					$trimmedLine = $line.Trim()
@@ -162,31 +166,37 @@ Process
 				}
 			}
 
-			# Second pass to add items
+			# second pass - to add items
 			foreach ($line in $lines) {
-				#Write-Host "reading line '$line'"
-				if ($line -match '^\t') {
-					$trimmedLine = $line.Trim()
+				if ($line -match '^\t') {										# item line
+					$trimmedLine = ($line -replace '--.*$','').Trim()			# remove any comments from end of line
+
 					if ($currentCategory) {
-						$categories[$currentCategory] += $trimmedLine
-						#Write-Host "   adding to '$currentCategory'"
+						if($categories[$currentCategory] -Contains $trimmedLine) { continue }
+						
+						$categories[$currentCategory] += $trimmedLine			# add to current category if it doesn't already include it
+						
 						if ($currentCategory -ne $defaultCategoryName) {
-							# Create a list of keys to iterate over to avoid modifying the collection directly
-							$categoryKeys = $categories.Keys | Where-Object { $_ -ne $defaultCategoryName -and $_ -ne $currentCategory }
+							if($categories[$defaultCategoryName] -Contains $trimmedLine) { continue }
+
+							$categories[$defaultCategoryName] += $trimmedLine	# add to default category if it doesn't already exist
 						}
 						
-						if ($currentCategory -eq $defaultCategoryName) {
+						if (-Not $ExcludeDefaultCategory -And ($currentCategory -eq $defaultCategoryName)) {
+							$categoryKeys = $categories.Keys | Where-Object { $_ -ne $defaultCategoryName -and $_ -ne $currentCategory }
+							
 							foreach ($key in $categoryKeys) {
-								$categories[$key] += $trimmedLine
-								#Write-Host "   adding to '$key'"
+								if($categories[$key] -Contains $trimmedLine) { continue }
+								
+								$categories[$key] += $trimmedLine				# add to all other categories if it doesn't already exist
 							}
 						}
 					}
 					else {
 						Write-Error "Invalid line, item not in a category: $line"
 					}
-				} elseif ($line.Trim() -match '^\S+:$') {
-					$trimmedLine = $line.Trim()
+				} elseif ($line.Trim() -match '^\S+:$') {						# category line
+					$trimmedLine = ($line -replace '--.*$','').Trim()			# remove any comments from end of line
 					$currentCategory = $trimmedLine -replace ':$'
 				} elseif ($line.Trim() -and !$line.StartsWith("--")) {
 					Write-Error "Invalid line format: $line"
@@ -205,15 +215,11 @@ Process
 
 			foreach ($file in $FileNames) {
 					$categories = Import-CategorizedData -FilePath $file
-					
-					# Add the keys from each categories hash table to the allCategories array
 					$allCategories += $categories.Keys
 			}
 
-			# Filter out the default category, sort and select unique category names
 			$sortedUniqueCategories = $allCategories | Where-Object { $_ -ne $defaultCategoryName } | Sort-Object -Unique -CaseSensitive:$false
 
-			# Add the default category back at the start if it was originally present
 			if ($allCategories -contains $defaultCategoryName) {
 				$sortedUniqueCategories = @($defaultCategoryName) + $sortedUniqueCategories
 			}
