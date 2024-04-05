@@ -20,14 +20,17 @@
 	.PARAMETER WindowsDir
 	The directory containing Windows. If not provided, "C:\Windows" is assumed.
 
-	.PARAMETER LocalDownloadDir
+	.PARAMETER ConfigDownloadDir
 	The directory containing the local storage for downloads. If not provided, "downloads" is assumed.
 	
-	.PARAMETER LocalPackageDir
+	.PARAMETER ConfigPackageDir
 	The directory containing the local storage for pre-made packages. If not provided, "packages" is assumed.
 
-	.PARAMETER LocalFontsDir
+	.PARAMETER ConfigFontsDir
 	The directory containing the local fonts. If not provided, "fonts" is assumed.
+
+	.PARAMETER ConfigWallpaperDir
+	The directory containing the local fonts. If not provided, "wallpapers" is assumed.
 
 	.PARAMETER DefaultCategoryName
 	The default category name that is always installed. If not provided, "All" is assumed.
@@ -62,6 +65,9 @@
 	.PARAMETER SkipShortcuts
 	Skips creating shortcuts.
 	
+	.PARAMETER SkipWallpapers
+	Skips changing background wallpapers.
+	
 	.PARAMETER DeleteDownloads
 	If set, deletes downloaded files when installation is done.
 
@@ -94,6 +100,7 @@ param (
 		[parameter()]											        [string]$ConfigDownloadDir,
 		[parameter()]											        [string]$ConfigPackageDir,
 		[parameter()]											        [string]$ConfigFontDir,
+		[parameter()]											        [string]$ConfigWallpaperDir,
 		[parameter()]											        [string]$DefaultCategoryName,
 		[parameter(ParameterSetName='Category')]       					[switch]$ExcludeDefaultCategory,
 		[parameter()]													[switch]$SkipWinget = $false,
@@ -106,6 +113,7 @@ param (
 		[parameter()]													[switch]$SkipStartups = $false,
 		[parameter()]													[switch]$SkipLibraries = $false,
 		[parameter()]													[switch]$SkipShortcuts = $false,
+		[parameter()]													[switch]$SkipWallpapers = $false,
 		[parameter()]													[switch]$DeleteDownloads = $false,
 		[parameter()]													[switch]$Interactive = $false
 	  )
@@ -224,6 +232,7 @@ Process
 			Write-Host " 9. process libraries     - (b)"
 			Write-Host "10. process startups      - (s)"
 			Write-Host "11. process shortcuts     - (t)"
+			Write-Host "12. process wallpapers    - (p)"
 			Write-Host ""
 			Write-Host " 0. exit                  - (x)"
 			Write-Host ""
@@ -272,6 +281,10 @@ Process
 			
 			if($choice -eq "11" -or $choice.ToLower() -eq "t") {
 				ProcessShortcuts
+			}
+			
+			if($choice -eq "12" -or $choice.ToLower() -eq "p") {
+				ProcessWallpapers
 			}
 			
 			if($choice -eq "0" -or $choice.ToLower() -eq "x") {
@@ -713,6 +726,24 @@ Process
 			}
 		}
 		
+		function ProcessWallpapers {
+			$do = $Interactive -or ($doWallpapers -And $wallpaperPaths -And $wallpaperPaths[$categoryToUse] -And $wallpaperPaths[$categoryToUse].Count -gt 0)
+			
+			if(-Not $do) { return }
+		
+			Write-Host ""
+			Write-Host "Changing wallpapers"
+		
+			foreach ($wp in $wallpaperPaths[$categoryToUse]) {
+				$path = Join-Path $configWallpaperPath $wp
+				
+				if(-Not (Test-Path -Path $path)) { continue }
+				Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop\' -Name Wallpaper -Value $path
+			}
+			
+			RUNDLL32.EXE user32.dll, UpdatePerUserSystemParameters
+		}
+		
 		
 		
 		# ----- start config --------------------------------------------------
@@ -721,6 +752,7 @@ Process
 		$defaultConfigDownloadDir = "downloads"
 		$defaultConfigPackageDir = "packages"
 		$defaultConfigFontDir = "fonts"
+		$defaultConfigWallpaperDir = "wallpapers"
 		$defaultCategoryName = "All"
 		
 		if($WindowsDir) {
@@ -761,6 +793,13 @@ Process
 			$fontsDir = $defaultConfigFontDir
 		}
 		
+		if($ConfigWallpaperDir) {
+			$wallpaperDir = $ConfigWallpaperDir
+		}
+		else {
+			$wallpaperDir = $defaultConfigWallpaperDir
+		}
+		
 		if($DefaultCategory) {
 			$defaultCategoryName = $DefaultCategory
 		}
@@ -777,6 +816,7 @@ Process
 		}
 		
 		$configFontPath = Join-Path $configDir $fontsDir
+		$configWallpaperPath = Join-Path $configDir $wallpaperDir
 		$configPackagePath = Join-Path $configDir $packageDir
 		$configDownloadPath = Join-Path $configDir $downloadDir
 		$fontKeyPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
@@ -795,6 +835,7 @@ Process
 		$doStartups = -Not $SkipStartups
 		$doLibraries = -Not $SkipLibraries
 		$doShortcuts = -Not $SkipShortcuts
+		$doWallpapers = -Not $SkipWallpapers
 		
 		Write-Host "---------------------------"
 		Write-Host "Configuration settings:"
@@ -816,6 +857,7 @@ Process
 			Write-Host ("  perform startups        = $doStartups").Replace("True", "yes").Replace("False", "no")
 			Write-Host ("  perform libraries       = $doLibraries").Replace("True", "yes").Replace("False", "no")
 			Write-Host ("  perform shortcuts       = $doShortcuts").Replace("True", "yes").Replace("False", "no")
+			Write-Host ("  perform wallpapers      = $doWallpapers").Replace("True", "yes").Replace("False", "no")
 		}
 		if(-Not $ListCategories) {
 			Write-Host "  processing for category = $categoryToUse"
@@ -837,6 +879,7 @@ Process
 		$startupPaths = Import-CategorizedData "$configDir\startups.txt"
 		$libraryPaths = Import-CategorizedData "$configDir\libraries.txt"
 		$shortcutsPaths = Import-CategorizedData "$configDir\shortcuts.txt"
+		$wallpaperPaths = Import-CategorizedData "$configDir\wallpapers.txt"
 
 		# ----- end config --------------------------------------------------
 
@@ -849,7 +892,8 @@ Process
 								 "$configDir\runCommands.txt",
 								 "$configDir\startups.txt",
 								 "$configDir\libraries.txt",
-								 "$configDir\shortcuts.txt")
+								 "$configDir\shortcuts.txt",
+								 "$configDir\wallpapers.txt")
 									 
 		
 		if($Interactive) {
@@ -877,6 +921,7 @@ Process
 		ProcessStartups
 		ProcessLibraries
 		ProcessShortcuts
+		ProcessWallpapers
 	}
 	catch [System.Exception]
 	{
