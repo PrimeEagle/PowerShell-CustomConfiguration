@@ -141,7 +141,7 @@ Process
 
 			# first pass - to identify categories
 			foreach ($line in $lines) {
-				if ($line.Trim() -match '^\S+:$') {
+				if ($line.Trim() -match '^[\S ]+:$') {
 					$trimmedLine = $line.Trim()
 					$categoryName = $trimmedLine -replace ':$'
 					if (-not $categories.ContainsKey($categoryName)) {
@@ -180,7 +180,7 @@ Process
 					else {
 						Write-Error "Invalid line, item not in a category: $line"
 					}
-				} elseif ($line.Trim() -match '^\S+:$') {						# category line
+				} elseif ($line.Trim() -match '^[\S ]+:$') {					# category line
 					$trimmedLine = ($line -replace '--.*$','').Trim()			# remove any comments from end of line
 					$currentCategory = $trimmedLine -replace ':$'
 				} elseif ($line.Trim() -and !$line.StartsWith("--")) {
