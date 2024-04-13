@@ -77,6 +77,39 @@
 	.PARAMETER Interactive
 	If set, presents a menu to run the different processes instead of running them automatically.
 	
+	.PARAMETER WingetFile
+	Winget configuration filename to use. Default is used if not specified.
+	
+	.PARAMETER DownloadsFile
+	Downloads configuration filename to use. Default is used if not specified.
+	
+	.PARAMETER LocalInstallsFile
+	Local installs configuration filename to use. Default is used if not specified.
+	
+	.PARAMETER HostsFile
+	Hosts configuration filename to use. Default is used if not specified.
+	
+	.PARAMETER FontsFile
+	Fonts configuration filename to use. Default is used if not specified.
+	
+	.PARAMETER CopiesFile
+	Copies configuration filename to use. Default is used if not specified.
+	
+	.PARAMETER RunCommandsFile
+	Run commands configuration filename to use. Default is used if not specified.
+	
+	.PARAMETER StartupsFile
+	Startups configuration filename to use. Default is used if not specified.
+	
+	.PARAMETER LibrariesFile
+	Libraries configuration filename to use. Default is used if not specified.
+	
+	.PARAMETER ShortcutsFile
+	Shortcuts configuration filename to use. Default is used if not specified.
+	
+	.PARAMETER WallpapersFile
+	Wallpapers configuration filename to use. Default is used if not specified.
+
 	.INPUTS
 	Category to install.
 
@@ -115,7 +148,18 @@ param (
 		[parameter()]													[switch]$SkipShortcuts = $false,
 		[parameter()]													[switch]$SkipWallpapers = $false,
 		[parameter()]													[switch]$DeleteDownloads = $false,
-		[parameter()]													[switch]$Interactive = $false
+		[parameter()]													[switch]$Interactive = $false,
+		[parameter()]													[string]$WingetFile,
+		[parameter()]													[string]$DownloadsFile,
+		[parameter()]													[string]$LocalInstallsFile,
+		[parameter()]													[string]$HostsFile,
+		[parameter()]													[string]$FontsFile,
+		[parameter()]													[string]$CopiesFile,
+		[parameter()]													[string]$RunCommandsFile,
+		[parameter()]													[string]$StartupsFile,
+		[parameter()]													[string]$LibrariesFile,
+		[parameter()]													[string]$ShortcutsFile,
+		[parameter()]													[string]$WallpapersFile
 	  )
 DynamicParam { Build-BaseParameters }
 
@@ -131,6 +175,8 @@ Begin
 	
 	if($cmd.Count -gt 1) { Write-DisplayHelp -Name "$(Get-RootScriptPath)" -HelpDetail }
 	if($cmd.Count -eq 1) { Write-DisplayHelp -Name "$(Get-RootScriptPath)" @cmd }
+	
+	Add-NuGetType -PackageName "YamlDotNet"
 }
 Process
 {
@@ -138,66 +184,221 @@ Process
 	{
 		$isDebug = Assert-Debug
 
-		function Import-CategorizedData {
+		Add-Type @"
+		public class CopyItem
+		{
+			public string Name { get; set; }
+			public string Source { get; set; }
+			public string Destination { get; set; }
+		}
+
+		public class DownloadItem
+		{
+			public string Name { get; set; }
+			public string Url { get; set; }
+		}
+
+		public class FontItem
+		{
+			public string Name { get; set; }
+		}
+
+		public class HostItem
+		{
+			public string Name { get; set; }
+			public string Entry { get; set; }
+		}
+
+		public class InstallItem
+		{
+			public string Name { get; set; }
+			public string Path { get; set; }
+		}
+
+		public class LibraryItem
+		{
+			public string Name { get; set; }
+			public string Path { get; set; }
+		}
+
+		public class RunCommandItem
+		{
+			public string Name { get; set; }
+			public string Command { get; set; }
+		}
+
+		public class ShortcutItem
+		{
+			public string Name { get; set; }
+			public string Destination { get; set; }
+			public string Target { get; set; }
+		}
+
+		public class StartupItem
+		{
+			public string Name { get; set; }
+			public bool Enabled { get; set; }
+		}
+		
+		public class WallpaperItem
+		{
+			public string Name { get; set; }
+			public string Path { get; set; }
+		}
+		
+		public class WinGetItem
+		{
+			public string Name { get; set; }
+		}
+"@
+
+		enum ItemType {
+			CopyItem
+			Download
+			Font
+			Host
+			Install
+			Library
+			RunCommand
+			Shortcut
+			Startup
+			Wallpaper
+			WinGet
+		}
+
+		function Parse-YamlFile {
 			param (
-				[string]$FilePath
+				[Parameter(Mandatory)] [string] $FilePath,
+				[Parameter(Mandatory)] [ItemType] $ObjectType,
+				[Parameter(Mandatory)] [string] $DefaultCategoryName
 			)
 
-			$categories = @{}
-			$currentCategory = $null
-			$lines = Get-Content -Path $FilePath
+			if (-Not (Test-Path -Path $FilePath)) {
+				Write-Error "File '$FilePath' doesn't exist."
+				return $null
+			}
 
-			# first pass - to identify categories
-			foreach ($line in $lines) {
-				if ($line.Trim() -match '^[\S ]+:$') {
-					$trimmedLine = $line.Trim()
-					$categoryName = $trimmedLine -replace ':$'
-					if (-not $categories.ContainsKey($categoryName)) {
-						$categories[$categoryName] = @()
+			$deserializer = New-Object YamlDotNet.Serialization.Deserializer
+
+			try {
+				$yamlContent = Get-Content -Path $FilePath -Raw
+				$yamlData = $deserializer.Deserialize([Collections.Generic.Dictionary[string, object]], $yamlContent)
+			} catch {
+				Write-Error "Failed to parse YAML file '$FilePath'."
+				return $null
+			}
+
+			$result = @{}
+			$categories = $yamlData.Keys -as [array]
+
+			if (-not $categories -contains $DefaultCategoryName) {
+				$categories += $DefaultCategoryName
+			}
+			foreach ($category in $categories) {
+				$result[$category] = @()
+			}
+
+			foreach ($key in $yamlData.Keys) {
+				$itemsType = switch ($ObjectType) {
+					[ItemType]::CopyItem { [CopyItem] }
+					[ItemType]::Download { [DownloadItem] }
+					[ItemType]::Font { [FontItem] }
+					[ItemType]::Host { [HostItem] }
+					[ItemType]::Install { [InstallItem] }
+					[ItemType]::Library { [LibraryItem] }
+					[ItemType]::RunCommand { [RunCommandItem] }
+					[ItemType]::Shortcut { [ShortcutItem] }
+					[ItemType]::Startup { [StartupItem] }
+					[ItemType]::Wallpaper { [WallpaperItem] }
+					[ItemType]::WinGet { [WinGetItem] }
+					default {
+						Write-Error "Invalid object type '$ObjectType' specified."
+						return $null
 					}
+				}
+
+				$items = $yamlData[$key] | ForEach-Object {
+					try {
+						$deserializer.Deserialize($_, $itemsType)
+					} catch {
+						Write-Error "Failed to deserialize item into $itemsType."
+						return $null
+					}
+				}
+
+				if ($key -eq $DefaultCategoryName) {
+					foreach ($cat in $categories) {
+						$result[$cat] += $items
+					}
+				} else {
+					$result[$key] += $items
+					$result[$DefaultCategoryName] += $items
 				}
 			}
 
-			# second pass - to add items
-			foreach ($line in $lines) {
-				if([string]::IsNullOrWhiteSpace(($line -replace '--.*$','').Trim())) { continue }
-				
-				if ($line -match '^\t') {										# item line
-					$trimmedLine = ($line -replace '--.*$','').Trim()			# remove any comments from end of line
-
-					if ($currentCategory) {
-						if($categories[$currentCategory] -Contains $trimmedLine) { continue }
-						
-						$categories[$currentCategory] += $trimmedLine			# add to current category if it doesn't already include it
-						
-						if ($currentCategory -ne $defaultCategoryName) {
-							if($categories[$defaultCategoryName] -Contains $trimmedLine) { continue }
-
-							$categories[$defaultCategoryName] += $trimmedLine	# add to default category if it doesn't already exist
-						}
-						
-						if (-Not $ExcludeDefaultCategory -And ($currentCategory -eq $defaultCategoryName)) {
-							$categoryKeys = $categories.Keys | Where-Object { $_ -ne $defaultCategoryName -and $_ -ne $currentCategory }
-							
-							foreach ($key in $categoryKeys) {
-								if($categories[$key] -Contains $trimmedLine) { continue }
-								$categories[$key] += $trimmedLine				# add to all other categories if it doesn't already exist
-							}
-						}
-					}
-					else {
-						Write-Error "Invalid line, item not in a category: $line"
-					}
-				} elseif ($line.Trim() -match '^[\S ]+:$') {					# category line
-					$trimmedLine = ($line -replace '--.*$','').Trim()			# remove any comments from end of line
-					$currentCategory = $trimmedLine -replace ':$'
-				} elseif ($line.Trim() -and !$line.StartsWith("--")) {
-					Write-Error "Invalid line format: $line"
-				}
-			}
-
-			return $categories
+			return $result
 		}
+
+#		function Import-CategorizedData {
+#			param (
+#				[string]$FilePath
+#			)
+#
+#			$categories = @{}
+#			$currentCategory = $null
+#			$lines = Get-Content -Path $FilePath
+#
+#			# first pass - to identify categories
+#			foreach ($line in $lines) {
+#				if ($line.Trim() -match '^[\S ]+:$') {
+#					$trimmedLine = $line.Trim()
+#					$categoryName = $trimmedLine -replace ':$'
+#					if (-not $categories.ContainsKey($categoryName)) {
+#						$categories[$categoryName] = @()
+#					}
+#				}
+#			}
+#
+#			# second pass - to add items
+#			foreach ($line in $lines) {
+#				if([string]::IsNullOrWhiteSpace(($line -replace '--.*$','').Trim())) { continue }
+#				
+#				if ($line -match '^\t') {										# item line
+#					$trimmedLine = ($line -replace '--.*$','').Trim()			# remove any comments from end of line
+#
+#					if ($currentCategory) {
+#						if($categories[$currentCategory] -Contains $trimmedLine) { continue }
+#						
+#						$categories[$currentCategory] += $trimmedLine			# add to current category if it doesn't already include it
+#						
+#						if ($currentCategory -ne $defaultCategoryName) {
+#							if($categories[$defaultCategoryName] -Contains $trimmedLine) { continue }
+#
+#							$categories[$defaultCategoryName] += $trimmedLine	# add to default category if it doesn't already exist
+#						}
+#						
+#						if (-Not $ExcludeDefaultCategory -And ($currentCategory -eq $defaultCategoryName)) {
+#							$categoryKeys = $categories.Keys | Where-Object { $_ -ne $defaultCategoryName -and $_ -ne $currentCategory }
+#							
+#							foreach ($key in $categoryKeys) {
+#								if($categories[$key] -Contains $trimmedLine) { continue }
+#								$categories[$key] += $trimmedLine				# add to all other categories if it doesn't already exist
+#							}
+#						}
+#					}
+#					else {
+#						Write-Error "Invalid line, item not in a category: $line"
+#					}
+#				} elseif ($line.Trim() -match '^[\S ]+:$') {					# category line
+#					$trimmedLine = ($line -replace '--.*$','').Trim()			# remove any comments from end of line
+#					$currentCategory = $trimmedLine -replace ':$'
+#				} elseif ($line.Trim() -and !$line.StartsWith("--")) {
+#					Write-Error "Invalid line format: $line"
+#				}
+#			}
+#
+#			return $categories
+#		}
 
 		function Get-UniqueCategories {
 			param (
@@ -314,7 +515,7 @@ Process
 			if(-Not $do) { return }
 
 			Write-Host ""
-			Write-host "Performin winget installs"
+			Write-host "Performing winget installs"
 			
 			foreach ($pkg in $wingetPackages[$categoryToUse]) {
 				Write-Host "Installing '$pkg' via winget..."
@@ -753,7 +954,7 @@ Process
 		$defaultConfigPackageDir = "packages"
 		$defaultConfigFontDir = "fonts"
 		$defaultConfigWallpaperDir = "wallpapers"
-		$defaultCategoryName = "All"
+		$defaultCategoryNameDef = "All"
 		
 		if($WindowsDir) {
 			$windowsPath = $WindowsDir
@@ -804,7 +1005,7 @@ Process
 			$defaultCategoryName = $DefaultCategory
 		}
 		else {
-			$defaultCategoryName = $defaultCategoryName
+			$defaultCategoryName = $defaultCategoryNameDef
 		}
 		
 		if($Category) {
@@ -837,6 +1038,47 @@ Process
 		$doShortcuts = -Not $SkipShortcuts
 		$doWallpapers = -Not $SkipWallpapers
 		
+		if($packageDir -eq $downloadDir) {
+			Write-Error "Package directory and download directory cannot be the same."
+			exit
+		}
+
+		$wingetFilename = $WingetFile ? $WingetFile : "$configDir\wingetPackages.yaml"
+		$downloadsFilename = $DownloadsFile ? $DownloadsFile : "$configDir\downloadUrls.yaml"
+		$installersFilename = $LocalInstallsFile ? $LocalInstallsFile : "$configDir\localInstallers.yaml"
+		$hostsFilename = $HostsFile ? $HostsFile : "$configDir\hostsEntries.yaml"
+		$fontsFilename = $FontsFile ? $FontsFile : "$configDir\fonts.yaml"
+		$copyFilename = $CopiesFile ? $CopiesFile : "$configDir\copy.yaml"
+		$runCommandsFilename = $RunCommandsFile ? $RunCommandsFile : "$configDir\runCommands.yaml"
+		$startupsFilename = $StartupsFile ? $StartupsFile : "$configDir\startups.yaml"
+		$librariesFilename = $LibrariesFile ? $LibrariesFile : "$configDir\libraries.yaml"
+		$shortcutsFilename = $ShortcutsFile ? $ShortcutsFile : "$configDir\shortcuts.yaml"
+		$wallpapersFilename = $WallpapersFile ? $WallpapersFile : "$configDir\wallpapers.yaml"
+		
+		#$wingetPackages = Import-CategorizedData $wingetFilename
+		#$downloadUrls = Import-CategorizedData $downloadsFilename
+		#$localInstallerPaths = Import-CategorizedData $installersFilename
+		#$hostsEntries = Import-CategorizedData $hostsFilename
+		#$fontPaths = Import-CategorizedData $fontsFilename
+		#$copyPaths = Import-CategorizedData $copyFilename
+		#$runCommandPaths = Import-CategorizedData $runCommandsFilename
+		#$startupPaths = Import-CategorizedData $startupsFilename
+		#$libraryPaths = Import-CategorizedData $librariesFilename
+		#$shortcutsPaths = Import-CategorizedData $shortcutsFilename
+		#$wallpaperPaths = Import-CategorizedData $wallpapersFilename
+		
+		$wingetPackages = Parse-YamlFile -FilePath $wingetFilename -ObjectType WingGet -DefaultCategoryName $defaultCategoryName
+		$downloadUrls = Parse-YamlFile -FilePath $downloadsFilename -ObjectType Download -DefaultCategoryName $defaultCategoryName
+		$localInstallerPaths = Parse-YamlFile -FilePath $installersFilename -ObjectType Install -DefaultCategoryName $defaultCategoryName
+		$hostsEntries = Parse-YamlFile -FilePath $hostsFilename -ObjectType Host -DefaultCategoryName $defaultCategoryName
+		$fontPaths = Parse-YamlFile -FilePath $fontsFilename -ObjectType Font -DefaultCategoryName $defaultCategoryName
+		$copyPaths = Parse-YamlFile -FilePath $copyFilename -ObjectType CopyItem -DefaultCategoryName $defaultCategoryName
+		$runCommandPaths = Parse-YamlFile -FilePath $runCommandsFilename -ObjectType RunCommand -DefaultCategoryName $defaultCategoryName
+		$startupPaths = Parse-YamlFile -FilePath $startupsFilename -ObjectType Startup -DefaultCategoryName $defaultCategoryName
+		$libraryPaths = Parse-YamlFile -FilePath $librariesFilename -ObjectType Library -DefaultCategoryName $defaultCategoryName
+		$shortcutsPaths = Parse-YamlFile -FilePath $shortcutsFilename -ObjectType Shortcut -DefaultCategoryName $defaultCategoryName
+		$wallpaperPaths = Parse-YamlFile -FilePath $wallpapersFilename -ObjectType Wallpaper -DefaultCategoryName $defaultCategoryName
+
 		Write-Host "---------------------------"
 		Write-Host "Configuration settings:"
 		Write-Host "  Windows directory       = '$windowsPath'"
@@ -844,6 +1086,17 @@ Process
 		Write-Host "  config download path    = '$configDownloadPath'"
 		Write-Host "  config package path     = '$configPackagePath'"
 		Write-Host "  config fonts path       = '$configFontPath'"
+		Write-Host "  winget file             = '$wingetFilename'"
+		Write-Host "  downloads file          = '$downloadsFilename'"
+		Write-Host "  installers file         = '$installersFilename'"
+		Write-Host "  hosts file              = '$hostsFilename'"
+		Write-Host "  fonts file              = '$fontsFilename'"
+		Write-Host "  copy file               = '$copyFilename'"
+		Write-Host "  run commands file       = '$runCommandsFilename'"
+		Write-Host "  startups file           = '$startupsFilename'"
+		Write-Host "  libraries file          = '$librariesFilename'"
+		Write-Host "  shortcuts file          = '$shortcutsFilename'"
+		Write-Host "  wallpapers file         = '$wallpapersFilename'"
 		Write-Host "  default category name   = $defaultCategoryName"
 		Write-Host "  interactive mode        = $Interactive".Replace("True", "yes").Replace("False", "no")
 		if(-Not $Interactive) {
@@ -864,36 +1117,19 @@ Process
 		}
 		Write-Host "---------------------------"
 		
-		if($packageDir -eq $downloadDir) {
-			Write-Error "Package directory and download directory cannot be the same."
-			exit
-		}
-		
-		$wingetPackages = Import-CategorizedData "$configDir\wingetPackages.txt"
-		$downloadUrls = Import-CategorizedData "$configDir\downloadUrls.txt"
-		$localInstallerPaths = Import-CategorizedData "$configDir\localInstallers.txt"
-		$hostsEntries = Import-CategorizedData "$configDir\hostsEntries.txt"
-		$fontPaths = Import-CategorizedData "$configDir\fonts.txt"
-		$copyPaths = Import-CategorizedData "$configDir\copy.txt"
-		$runCommandPaths = Import-CategorizedData "$configDir\runCommands.txt"
-		$startupPaths = Import-CategorizedData "$configDir\startups.txt"
-		$libraryPaths = Import-CategorizedData "$configDir\libraries.txt"
-		$shortcutsPaths = Import-CategorizedData "$configDir\shortcuts.txt"
-		$wallpaperPaths = Import-CategorizedData "$configDir\wallpapers.txt"
-
 		# ----- end config --------------------------------------------------
 
-		$categoryList = Get-UniqueCategories @("$configDir\wingetPackages.txt", 
-								 "$configDir\downloadUrls.txt", 
-								 "$configDir\localInstallers.txt", 
-								 "$configDir\hostsEntries.txt", 
-								 "$configDir\fonts.txt",
-								 "$configDir\copy.txt",
-								 "$configDir\runCommands.txt",
-								 "$configDir\startups.txt",
-								 "$configDir\libraries.txt",
-								 "$configDir\shortcuts.txt",
-								 "$configDir\wallpapers.txt")
+		$categoryList = Get-UniqueCategories @($wingetFilename, 
+											   $downloadsFilename, 
+											   $installersFilename, 
+											   $hostsFilename, 
+											   $fontsFilename,
+											   $copyFilename
+											   $runCommandsFilename,
+											   $startupsFilename,
+											   $librariesFilename,
+											   $shortcutsFilename,
+											   $wallpapersFilename)
 									 
 		
 		if($Interactive) {

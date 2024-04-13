@@ -1,0 +1,145 @@
+All:
+	M2Team.NanaZip
+	9NP83LWLPZ9K										-- Apple Devices
+	Adobe.Acrobat.Reader.64-bit
+	Discord.Discord
+	Dropbox.Dropbox
+	Google.Chrome
+	Google.GoogleDrive
+	Microsoft.Edge
+	Microsoft.PowerShell
+	Microsoft.RemoteDesktopClient
+	MullvadVPN.MullvadVPN
+	Notepad++.Notepad++
+	RazerInc.RazerInstaller
+	VideoLAN.VLC
+	Zoom.Zoom
+	qBittorrent.qBittorrent
+	Nvidia.GeForceExperience
+
+Art:
+	BlenderFoundation.Blender
+
+Daoist:
+	Musescore.Musescore
+	Musescore.Musescore.3
+	Audacity.Audacity
+
+Gaming:
+	EpiceGames.EpicGamesLauncher
+	GOG.Galaxy
+	Logitech.GHUB
+	TeamViewer.TeamViewer
+	Valve.Steam
+
+Mapping:
+	Google.EarthPro
+
+Music:
+	Audacity.Audacity
+	Cockos.REAPER
+	EasyABC.EasyABC
+	Musescore.Musescore
+	Musescore.Musescore.3
+	plogue.sforzando
+
+Programming:
+	ArduinoSA.IDE.stable
+	Axosoft.GitKraken
+	Coq.CoqPlatform
+	CoreyButler.NVMforWindows
+	DBBrowserForSQLite.DBBrowserForSQLite
+	DEVCOM.Lua
+	Diskuv.OCaml
+	Dlang.DMD
+	Erlang.ErlangOTP
+	EvanCzaplicki.Elm
+	Evolus.Pencil
+	Git.Git
+	GitHub.Atom
+	GitHub.GitHubDesktop
+	GitHub.cli
+	Gleam.Gleam
+	GoLang.Go
+	Insecure.Npcap
+	JetBrains.Toolbox
+	Julialang.Julia
+	KDE.KDiff3
+	MSYS2.MSYS2
+	Maximus5.ConEmu
+	Microsoft.DotNet.SDK.8
+	Microsoft.NuGet
+	Microsoft.SQLServer.2022.Developer
+	Microsoft.SQLServerManagementStudio
+	Microsoft.VisualStudio.2022.Professional
+	Microsoft.VisualStudioCode
+	Microsoft.VisualStudioCode.CLI
+	Microsoft.WindowsTerminal
+	Neovim.Neovim
+	OpenJS.NodeJS
+	Oracle.JDK.22
+	Oracle.JavaRuntimeEnvironment
+	Pharoproject.PharoLauncher
+	Python.Python.3.12
+	RProject.Rtools
+	RubyInstallerTeam.Ruby.3.2
+	Rustlang.Rustup
+	SQLite.SQLite
+	StrawberryPerl.StrawberryPerl
+	SublimeHQ.SublimeMerge
+	TortoiseGit.TortoiseGit
+	TortoiseSVN.TortoiseSVN
+	Unity.Unity.2023
+	Unity.UnityHub
+	WestWind.MarkdownMonster
+	WinMerge.WinMerge
+	WiresharkFoundation.Wireshark
+	WolframResearch.WolframEngine
+	bmatzelle.Gow
+	zufuliu.notepad2
+
+Sound Libraries:
+	
+
+Tools:
+	CrystalRich.LockHunter
+	Ditto.Ditto
+	Grammarly.Grammarly
+	Microsoft.MediaCreationTool
+	Obsidian.Obsidian
+	Piriform.CCleaner
+	ShareX.ShareX
+	SoftDeluxe.FreeDownloadManager
+	Stardock.Fences
+	Stardock.Start11
+
+Voiceover:
+	OBSProject.OBSStudio
+	
+WHLC:
+	Cockos.REAPER
+	DigitalScholar.Zotero
+	Google.EarthPro
+	Grammarly.Grammarly
+	Gramps.Gramps
+	LiteratureandLatte.Scrivener
+
+Work:
+	Grammarly.Grammarly
+	KDE.KDiff3
+	Microsoft.DotNet.SDK.8
+	Microsoft.NuGet
+	Microsoft.PowerShell
+	Microsoft.SQLServer.2022.Developer
+	Microsoft.SQLServerManagementStudio
+	Microsoft.VisualStudio.2022.Professional
+	Microsoft.WindowsTerminal
+	OpenVPNTechnologies.OpenVPNConnect
+	TortoiseSVN.TortoiseSVN
+	WinMerge.WinMerge
+
+Writing:
+	LiteratureandLatte.Scrivener
+	Grammarly.Grammarly
+	DigitalScholar.Zotero
+	CameronSutter.Plottr

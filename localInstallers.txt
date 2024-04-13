@@ -1,6 +1,0 @@
-Tools:
-	Avast	avast_secure_browser_setup.exe
-	FileZilla	FileZilla_3.66.5_win64-setup.exe
-
-Programming:
-	MarkdownPad	markdownpad2-setup.exe

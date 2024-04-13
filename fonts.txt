@@ -1,3 +1,0 @@
-All:
-	times.ttf
-	arial.ttf
